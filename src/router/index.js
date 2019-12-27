@@ -10,8 +10,12 @@ const routes = [
   },
   {
     path: '/login', name: 'login', component: () => import(/* webpackChunkName: "about" */ '../views/Login/Login.vue')
-  }
-
+  },
+  {
+    path: '/home', name: 'home', component: () => import(/* webpackChunkName: "about" */ '../views/Home/Home.vue')
+  },
+  //错误重定向
+  {path:"*",redirect:"/login"}
 ]
 
 const router = new VueRouter({
