@@ -13,20 +13,40 @@
               <el-form-item label="姓名" prop="username">
                 <el-input v-model="userForm.username"></el-input>
               </el-form-item>
+              <el-form-item label="密码" prop="password">
+                <el-input v-model="userForm.password" type="password"></el-input>
+              </el-form-item>
               <el-form-item label="邮箱" prop="email">
                 <el-input v-model="userForm.email"></el-input>
               </el-form-item>
               <el-form-item label="电话号码" prop="mobile">
                 <el-input v-model="userForm.mobile"></el-input>
               </el-form-item>
-              <el-form-item label="角色" prop="role">
-                <el-input v-model="userForm.role"></el-input>
-              </el-form-item>
             </el-form>
           </span>
           <span slot="footer" class="dialog-footer">
             <el-button @click="noUsers">取 消</el-button>
             <el-button type="primary" @click="addUsers">确 定</el-button>
+          </span>
+        </el-dialog>
+        <!-- 编辑用户对话框 -->
+        <el-dialog title="编辑用户" :visible.sync="editDialog" width="30%">
+          <span>
+            <el-form ref="editForm" :model="editForm" label-width="80px" :rules="editFormRules">
+              <el-form-item label="用户名" prop="username">
+                <el-input v-model="editForm.username" disabled></el-input>
+              </el-form-item>
+              <el-form-item label="邮箱" prop="email">
+                <el-input v-model="editForm.email"></el-input>
+              </el-form-item>
+              <el-form-item label="电话号码" prop="mobile">
+                <el-input v-model="editForm.mobile"></el-input>
+              </el-form-item>
+            </el-form>
+          </span>
+          <span slot="footer" class="dialog-footer">
+            <el-button @click="noEdit">取 消</el-button>
+            <el-button type="primary" @click="addEdit">确 定</el-button>
           </span>
         </el-dialog>
       </div>
@@ -43,15 +63,23 @@
           </template>
         </el-table-column>
         <el-table-column label="操作" width="240">
-          <el-tooltip class="item" effect="dark" content="编辑" placement="top">
-            <el-button size="mini" type="primary" icon="el-icon-edit"></el-button>
-          </el-tooltip>
-          <el-tooltip class="item" effect="dark" content="删除" placement="top">
-            <el-button size="mini" type="danger" icon="el-icon-delete"></el-button>
-          </el-tooltip>
-          <el-tooltip class="item" effect="dark" content="设置" placement="top">
-            <el-button size="mini" type="warning" icon="el-icon-setting"></el-button>
-          </el-tooltip>
+          <template slot-scope="scope">
+            <el-tooltip class="item" effect="dark" content="编辑" placement="top">
+              <el-button size="mini" type="primary" icon="el-icon-edit" @click="edit(scope.row.id)"></el-button>
+            </el-tooltip>
+            <el-tooltip class="item" effect="dark" content="删除" placement="top">
+              <el-button
+                size="mini"
+                type="danger"
+                icon="el-icon-delete"
+                @click="removeUsers(scope.row.id)"
+              ></el-button>
+            </el-tooltip>
+
+            <el-tooltip class="item" effect="dark" content="设置" placement="top">
+              <el-button size="mini" type="warning" icon="el-icon-setting"></el-button>
+            </el-tooltip>
+          </template>
         </el-table-column>
       </el-table>
       <el-pagination
@@ -68,25 +96,56 @@
 </template>
 
 <script>
-import { getUsersList, changeStatus } from "../../../../apis/user";
+import {
+  getUsersList,
+  changeStatus,
+  addUsers,
+  addEdit,
+  sureEdit,
+  deleteUsers
+} from "../../../../apis/user";
 export default {
   data() {
     var validatePass = (rule, value, callback) => {
       if (value === "") {
-        callback(new Error("请输入邮箱"));
+        callback();
       } else {
-        if (this.ruleForm.checkPass !== "") {
-          this.$refs.ruleForm.validateField("checkPass");
+        let reg = /[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+\.?/;
+        if (!reg.test(value)) {
+          callback(new Error("请输入正确邮箱"));
         }
         callback();
       }
     };
     var validatePass2 = (rule, value, callback) => {
       if (value === "") {
-        callback(new Error("请输入手机号"));
+        callback();
       } else {
-        if (this.ruleForm.checkPass !== "") {
-          this.$refs.ruleForm.validateField("checkPass");
+        let regPhone = /^(13[0-9]|14[5|7]|15[0|1|2|3|5|6|7|8|9]|18[0|1|2|3|5|6|7|8|9])\d{8}$/;
+        if (!regPhone.test(value)) {
+          callback(new Error("请输入正确手机号"));
+        }
+        callback();
+      }
+    };
+    var validatePass3 = (rule, value, callback) => {
+      if (value === "") {
+        callback();
+      } else {
+        let reg = /[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+\.?/;
+        if (!reg.test(value)) {
+          callback(new Error("请输入正确邮箱"));
+        }
+        callback();
+      }
+    };
+    var validatePass4 = (rule, value, callback) => {
+      if (value === "") {
+        callback();
+      } else {
+        let regPhone = /^(13[0-9]|14[5|7]|15[0|1|2|3|5|6|7|8|9]|18[0|1|2|3|5|6|7|8|9])\d{8}$/;
+        if (!regPhone.test(value)) {
+          callback(new Error("请输入正确手机号"));
         }
         callback();
       }
@@ -97,12 +156,14 @@ export default {
       userList: [],
       show: "",
       dialogstatus: false,
+      editDialog: false,
       userForm: {
         username: "",
         email: "",
         mobile: "",
-        role: ""
+        password: ""
       },
+      editForm: {},
       queryInfo: {
         params: {
           query: "",
@@ -117,21 +178,33 @@ export default {
         ],
         email: [
           {
-            required: true,
             validator: validatePass,
             trigger: "blur"
           }
         ],
         mobile: [
           {
-            required: true,
             validator: validatePass2,
             trigger: "blur"
           }
         ],
-        role: [
-          { required: true, message: "请输入姓名", trigger: "blur" },
-          { min: 2, max: 8, message: "长度在 2 到 8 个字符", trigger: "blur" }
+        password: [
+          { required: true, message: "请输入密码", trigger: "blur" },
+          { min: 3, max: 8, message: "长度在 3到 20 个字符", trigger: "blur" }
+        ]
+      },
+      editFormRules: {
+        email: [
+          {
+            validator: validatePass3,
+            trigger: "blur"
+          }
+        ],
+        mobile: [
+          {
+            validator: validatePass4,
+            trigger: "blur"
+          }
         ]
       }
     };
@@ -180,12 +253,95 @@ export default {
       this.dialogstatus = !this.dialogstatus;
     },
     addUsers() {
-      this.dialogstatus = false;
       //发送请求
+      addUsers(this.userForm).then(res => {
+        console.log(res);
+        if (res.meta.status == 201) {
+          this.dialogstatus = false;
+          this.$message({
+            type: "success",
+            message: "创建成功！！！",
+            duration: 500
+          });
+          this.$refs.userForm.resetFields();
+          this.show();
+        } else {
+          this.$message({
+            type: "warning",
+            message: "创建失败！！！",
+            duration: 500
+          });
+          this.dialogstatus = true;
+        }
+      });
     },
     noUsers() {
       this.$refs.userForm.resetFields();
       this.dialogstatus = false;
+    },
+    edit(editId) {
+      // console.log(editId);
+      this.editDialog = true;
+      addEdit(editId).then(res => {
+        // console.log(res);
+        if (res.meta.status === 200) {
+          this.editForm = res.data;
+        }
+      });
+    },
+    addEdit() {
+      sureEdit(this.editForm.id, {
+        email: this.editForm.email,
+        mobile: this.editForm.mobile
+      }).then(res => {
+        if (res.meta.status === 200) {
+          this.editDialog = false;
+          this.$message({
+            type: "success",
+            message: "更新成功",
+            duration: 500
+          });
+        } else {
+          this.$message({
+            type: "error",
+            message: "更新失败",
+            duration: 500
+          });
+        }
+      });
+    },
+    noEdit() {
+      this.editDialog = false;
+    },
+    removeUsers(userId) {
+      this.$confirm("此操作将永久删除该文件, 是否继续?", "提示", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning"
+      })
+        .then(() => {
+          deleteUsers(userId).then(res => {
+            // console.log(res)
+            if (res.meta.status === 200) {
+              this.$message({
+                type: "success",
+                message: "删除成功"
+              });
+              this.show()
+            } else {
+              this.$message({
+                type: "warning",
+                message: "删除失败"
+              });
+            }
+          });
+        })
+        .catch(() => {
+          this.$message({
+            type: "info",
+            message: "已取消删除"
+          });
+        });
     }
   },
   mounted() {
