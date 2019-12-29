@@ -5,8 +5,11 @@ import store from './store'
 import ElementUI from 'element-ui'
 import 'element-ui/lib/theme-chalk/index.css'
 import './assets/styles/global.css'
+import './utils/axiosBack'
+import './assets/fonts/loginFont/iconfont.css'
 Vue.config.productionTip = false
 Vue.use(ElementUI);
+
 new Vue({
   router,
   store,
